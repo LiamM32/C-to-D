@@ -6,14 +6,38 @@ import tree_sitter.api;
 import ctod.util: Map;
 
 /// Returns: a concrete syntax tree for C source code
-Node* parseCtree(TSParser* parser, string source) @trusted {
+SourceFile parseCtree(TSParser* parser, string source) @trusted {
 	scope TSTree* tree = ts_parser_parse_string(parser, null, source.ptr, cast(uint) source.length);
 	if (ts_node_is_null(ts_tree_root_node(tree))) {
 		return null;
 	}
-	Extra* extra = new Extra(source);
-	Node* result = new Node(ts_tree_root_node(tree), extra);
-	return result;
+	return new SourceFile(source, tree);
+}
+
+// Represents a C source file
+class SourceFile
+{
+	string path;
+
+	// Later store the `TSTree` here, rather than being a pointer
+	protected TSTree* tree;
+	
+	Extra extra;
+
+	Node rootNode;
+	alias this = rootNode;
+
+	inout(Node[]) children() inout nothrow => rootNode.children;
+
+	Node[string] knownSymbols;
+
+	ref string fullSource() => extra.fullSource;
+
+	this(string source, TSTree* tree) @trusted nothrow {
+		this.tree = tree;
+		extra = Extra(source);
+		rootNode = Node(ts_tree_root_node(tree), &extra);
+	}
 }
 
 struct Extra
@@ -71,8 +95,8 @@ struct Node
 	nothrow:
 	private TSNode tsnode; // 32 bytes
 
-	/// The entire C source code this belongs in
-	string fullSource;
+	/// Pointer to the source code of the file this belongs to
+	private string* _fullSource;
 	/// D code to replace source with for this node
 	private string replacement;
 	private string prefix;
@@ -95,6 +119,9 @@ struct Node
 	/// Tag identifying the C AST node type
 	Sym typeEnum() @trusted const { return cast(Sym) ts_node_symbol(tsnode); }
 
+	/// Full source code of the file
+	string fullSource() const => extra.fullSource;
+
 	/// Source code of this node
 	string source() const { return fullSource[start .. end]; }
 
@@ -113,7 +140,7 @@ struct Node
 	this(TSNode node, Extra* extra) @trusted {
 		this.tsnode = node; //
 		this.extra = extra;
-		this.fullSource = extra.fullSource;
+		this._fullSource = &extra.fullSource;
 		this.children_.length = ts_node_child_count(node);
 		this.findChildren();
 	}

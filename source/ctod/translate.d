@@ -23,7 +23,7 @@ struct TranslationSettings
 }
 
 /// Returns: C language parser for tree-sitter
-extern(C) void* tree_sitter_c();
+extern(C) TSLanguage* tree_sitter_c();
 
 /// Returns: tree-sitter C parser
 private TSParser* getCParser() @trusted {
@@ -48,9 +48,9 @@ string translateFile(string source, string moduleName, ref TranslationSettings s
 	source = filterCppBlocks(source);
 
 	auto ctx = CtodCtx(source, parser);
-	Node* root = parseCtree(ctx.parser, source);
+	SourceFile root = parseCtree(ctx.parser, source);
 	assert(root);
-	translateNode(ctx, *root);
+	translateNode(ctx, root.rootNode);
 
 	string result = "";
 
@@ -105,7 +105,7 @@ struct TypeScope
 package
 struct CtodCtx
 {
-	/// input C  source code
+	/// input C source code
 	string source;
 	/// C parser
 	TSParser* parser;

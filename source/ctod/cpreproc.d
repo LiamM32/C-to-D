@@ -272,7 +272,7 @@ string ctodMacroFunc(ref CtodCtx ctx, string macroText) {
 	if (!root || !root.children.length > 0) {
 		return macroText;
 	}
-	translateNode(ctx, *root);
+	translateNode(ctx, root);
 	auto f = root.children[0].childField(Field.body_);
 	if (!f || !f.children.length > 0) {
 		return macroText;
