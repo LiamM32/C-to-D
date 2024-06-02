@@ -17,6 +17,8 @@ SourceFile parseCtree(TSParser* parser, string source) @trusted {
 // Represents a C source file
 class SourceFile
 {
+	static SourceFile[][string] loadedHeaders;
+	
 	string path;
 
 	// Later store the `TSTree` here, rather than being a pointer
@@ -29,7 +31,7 @@ class SourceFile
 
 	inout(Node[]) children() inout nothrow => rootNode.children;
 
-	Node[string] knownSymbols;
+	Node*[string] knownDeclarations;
 
 	ref string fullSource() => extra.fullSource;
 
@@ -95,8 +97,9 @@ struct Node
 	nothrow:
 	private TSNode tsnode; // 32 bytes
 
-	/// Pointer to the source code of the file this belongs to
-	private string* _fullSource;
+	/// C source file that this node belongs to
+	SourceFile sourceFile;
+	
 	/// D code to replace source with for this node
 	private string replacement;
 	private string prefix;
@@ -140,7 +143,6 @@ struct Node
 	this(TSNode node, Extra* extra) @trusted {
 		this.tsnode = node; //
 		this.extra = extra;
-		this._fullSource = &extra.fullSource;
 		this.children_.length = ts_node_child_count(node);
 		this.findChildren();
 	}

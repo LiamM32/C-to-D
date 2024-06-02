@@ -50,7 +50,7 @@ string translateFile(string source, string moduleName, ref TranslationSettings s
 	auto ctx = CtodCtx(source, parser);
 	SourceFile root = parseCtree(ctx.parser, source);
 	assert(root);
-	translateNode(ctx, root.rootNode);
+	translateNode(ctx, root.rootNode, root.knownDeclarations);
 
 	string result = "";
 
@@ -221,28 +221,28 @@ nothrow:
 }
 
 ///
-void translateNode(ref CtodCtx ctx, ref Node node) {
+void translateNode(ref CtodCtx ctx, ref Node node, Node*[string] declarations = null) {
 	if (node.isTranslated) {
 		return;
 	}
 	scope(exit) node.isTranslated = true;
 
-	if (ctodTryPreprocessor(ctx, node)) {
+	if (ctodTryPreprocessor(ctx, node, declarations)) {
 		return;
 	}
 	if (ctodTryInitializer(ctx, node)) {
 		return;
 	}
-	if (ctodTryDeclaration(ctx, node)) {
+	if (ctodTryDeclaration(ctx, node, declarations)) {
 		return;
 	}
 	if (ctodTryTypedef(ctx, node)) {
 		return;
 	}
-	if (ctodExpression(ctx, node)) {
+	if (ctodExpression(ctx, node, declarations)) {
 		return;
 	}
-	if (ctodTryStatement(ctx, node)) {
+	if (ctodTryStatement(ctx, node, declarations)) {
 		return;
 	}
 	if (ctodMisc(ctx, node)) {
@@ -250,7 +250,7 @@ void translateNode(ref CtodCtx ctx, ref Node node) {
 	}
 
 	foreach (ref c; node.children) {
-		translateNode(ctx, c);
+		translateNode(ctx, c, declarations);
 	}
 }
 
@@ -271,7 +271,7 @@ bool hasDefaultStatement(ref Node node) {
 	return false;
 }
 
-package bool ctodTryStatement(ref CtodCtx ctx, ref Node node) {
+package bool ctodTryStatement(ref CtodCtx ctx, ref Node node, Node*[string] declarations) {
 	switch (node.typeEnum) {
 		case Sym.if_statement:
 		case Sym.while_statement:
@@ -289,7 +289,7 @@ package bool ctodTryStatement(ref CtodCtx ctx, ref Node node) {
 				}
 			}
 			if (auto initializer = node.childField(Field.initializer)) {
-				if (auto decls = ctodTryDeclaration(ctx, *initializer))
+				if (auto decls = ctodTryDeclaration(ctx, *initializer, declarations))
 				{
 					// If there are multiple declarations with different types, need to wrap in {}
 					CType prevType = CType.none;

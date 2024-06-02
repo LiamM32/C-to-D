@@ -7,7 +7,7 @@ import ctod.translate;
 import ctod.ctype;
 
 /// Returns: true if a declaration was matched and replaced
-Decl[] ctodTryDeclaration(ref CtodCtx ctx, ref Node node) {
+Decl[] ctodTryDeclaration(ref CtodCtx ctx, ref Node node, Node*[string] declarations) {
 	InlineType[] inlinetypes;
 
 	Decl[] translateDecl(string suffix, bool cInit) {
@@ -60,7 +60,7 @@ Decl[] ctodTryDeclaration(ref CtodCtx ctx, ref Node node) {
 				// For now: add whitespace before bodyNode to preserve brace style and comments after the signature
 				const layout = node.fullSource[declNode.end .. bodyNode.start];
 				ctx.enterFunction("???");
-				translateNode(ctx, *bodyNode);
+				translateNode(ctx, *bodyNode, declarations);
 				ctx.leaveFunction();
 				return translateDecl(layout ~ bodyNode.output(), false);
 			}
@@ -69,7 +69,7 @@ Decl[] ctodTryDeclaration(ref CtodCtx ctx, ref Node node) {
 			return translateDecl("", false);
 		case Sym.field_declaration: // struct / union field
 			if (auto bitNode = node.firstChildType(Sym.bitfield_clause)) {
-				translateNode(ctx, *bitNode);
+				translateNode(ctx, *bitNode, declarations);
 				node.append("/*"~bitNode.output~" !!*/");
 			}
 			return translateDecl(";", true);

@@ -13,7 +13,7 @@ package
 /// If `node` is a recognized preprocessor node, translate it to D
 ///
 /// Returns: `true` on success
-bool ctodTryPreprocessor(ref CtodCtx ctx, ref Node node) {
+bool ctodTryPreprocessor(ref CtodCtx ctx, ref Node node, Node*[string]declarations) {
 	switch (node.typeEnum) {
 		case Sym.aux_preproc_else_token1: // "#else"
 			return node.replace("} else {");
@@ -48,7 +48,7 @@ bool ctodTryPreprocessor(ref CtodCtx ctx, ref Node node) {
 			if (auto valueNode = node.childField(Field.value)) {
 				// aux_sym_preproc_def_token1 = "#define"
 				if (auto c = node.childField(Field.name)) {
-					translateNode(ctx, *c);
+					translateNode(ctx, *c, declarations);
 					ctx.macroTable[c.output()] = MacroType.manifestConstant;
 				}
 				auto argNode = node.firstChildType(Sym.preproc_arg);
@@ -102,7 +102,7 @@ bool ctodTryPreprocessor(ref CtodCtx ctx, ref Node node) {
 				}
 				if (auto c = node.childField(Field.name)) {
 					c.append(";");
-					translateNode(ctx, *c);
+					translateNode(ctx, *c, declarations);
 					ctx.macroTable[c.output()] = MacroType.versionId;
 				}
 			}
@@ -125,7 +125,7 @@ bool ctodTryPreprocessor(ref CtodCtx ctx, ref Node node) {
 			if (auto c = node.firstChildType(Sym.aux_preproc_def_token1)) {
 				c.replace("enum string");
 			}
-			translateNode(ctx, *nameNode);
+			translateNode(ctx, *nameNode, declarations);
 			ctx.macroTable[nameNode.output()] = MacroType.inlineFunc;
 
 			string[] params;
@@ -167,7 +167,7 @@ bool ctodTryPreprocessor(ref CtodCtx ctx, ref Node node) {
 					if (b.typeEnum == Sym.preproc_def) {
 						if (auto cc = b.childField(Field.name)) {
 							if (cc.source == nameNode.source) {
-								translateNode(ctx, b);
+								translateNode(ctx, b, declarations);
 								node.replace(b.output);
 								return true;
 							}
@@ -248,7 +248,7 @@ bool ctodTryPreprocessor(ref CtodCtx ctx, ref Node node) {
 					pathNode.replace(ctodIncludePath(pathNode.source));
 				} else {
 					// see case for system_lib_string above
-					ctodTryPreprocessor(ctx, *pathNode);
+					ctodTryPreprocessor(ctx, *pathNode, declarations);
 					// note: explicit call not really needed, children are
 					// automatically translated by returning false
 				}
@@ -347,14 +347,14 @@ private bool ctodHeaderGuard(ref CtodCtx ctx, ref Node ifdefNode) {
 
 /// Replace a defined(__WIN32__) to either `HasVersion!"Windows"` (in a `static if`)
 /// or just `Windows` (in a `version()`)
-bool replaceDefined(ref CtodCtx ctx, ref Node node, bool inVersionStatement) {
+bool replaceDefined(ref CtodCtx ctx, ref Node node, bool inVersionStatement, Node*[string] declarations = null) {
 	if (auto c = node.firstChildType(Sym.identifier)) {
 		string replacement = c.source;
 		if (string s = mapLookup(versionMap, c.source, null)) {
 			c.replace(s); // known #define translation
 			replacement = s;
 		} else {
-			translateNode(ctx, *c); // reserved identifier replacement
+			translateNode(ctx, *c, declarations); // reserved identifier replacement
 		}
 		if (inVersionStatement) {
 			return node.replace(replacement);
