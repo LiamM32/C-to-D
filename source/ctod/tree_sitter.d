@@ -15,50 +15,38 @@ SourceFile parseCtree(TSParser* parser, string source) @trusted {
 }
 
 // Represents a C source file
-class SourceFile
+class SourceFile : Node
 {
-	static SourceFile[][string] loadedHeaders;
-	
 	string path;
+
+	string sourceString;
+	alias fullSource = sourceString;
 
 	// Later store the `TSTree` here, rather than being a pointer
 	protected TSTree* tree;
-	
-	Extra extra;
 
-	Node rootNode;
-	alias this = rootNode;
-
-	inout(Node[]) children() inout nothrow => rootNode.children;
-
-	Node*[string] knownDeclarations;
-
-	ref string fullSource() => extra.fullSource;
+	Node[string] knownDeclarations;
 
 	this(string source, TSTree* tree) @trusted nothrow {
 		this.tree = tree;
-		extra = Extra(source);
-		rootNode = Node(ts_tree_root_node(tree), &extra);
+		sourceString = source;
+		super(ts_tree_root_node(tree), this);
 	}
-}
 
-struct Extra
-{
-	string fullSource;
 	Map!(size_t, Node) nodes;
-
-	ref Node get(TSNode tsnode) @trusted {
+	Node getNode(TSNode tsnode) @trusted {
 		const id = ts_node_start_byte(tsnode);
 		if (auto x = id in nodes) {
 			return *x;
 		} else {
-			return nodes[id] = Node(tsnode, &this);
+			nodes[id] = new Node(tsnode, this);
+			return nodes[id];
 		}
 	}
 }
 
 // WIP: replace array with this lazy range
-struct Children
+/*struct Children
 {
 	private TSNode tsnode;
 	Extra* extra;
@@ -77,7 +65,7 @@ struct Children
 
 	@disable this(this);
 
-	ref Node opIndex(size_t i) @trusted {
+	Node opIndex(size_t i) @trusted {
 		return extra.get(named ?
 			ts_node_named_child(tsnode, cast(uint) i) :
 			ts_node_child(tsnode, cast(uint) i)
@@ -86,13 +74,13 @@ struct Children
 
 	bool empty() const { return i >= length; }
 	void popFront() {i++;}
-	ref Node front() { return this[i]; }
+	Node front() { return this[i]; }
 
 	Node[] children;
-}
+}*/
 
 /// Conrete syntax tree node
-struct Node
+class Node
 {
 	nothrow:
 	private TSNode tsnode; // 32 bytes
@@ -106,13 +94,11 @@ struct Node
 	private string suffix;
 
 	/// Child nodes
-	private Node[] children_;
+	protected Node[] children_;
 
 	bool isTranslated = false; /// if translation has already been done
 	bool hasBeenReplaced = false;
 	private bool noLayout = false; // don't emit layout
-
-	Extra* extra;
 
 	/// Start index fullSource
 	uint start() @trusted const { return ts_node_start_byte(tsnode); }
@@ -123,7 +109,7 @@ struct Node
 	Sym typeEnum() @trusted const { return cast(Sym) ts_node_symbol(tsnode); }
 
 	/// Full source code of the file
-	string fullSource() const => extra.fullSource;
+	string fullSource() const => sourceFile.fullSource;
 
 	/// Source code of this node
 	string source() const { return fullSource[start .. end]; }
@@ -134,15 +120,15 @@ struct Node
 	/// Each node has unique source location, so we can use it as a key
 	ulong id() const { return start | (cast(ulong) end << 32); }
 
-	size_t toHash() const { return cast(size_t) id; } // #optimization: On 32-bit, we can do better than truncating
+	//size_t toHash() const { return cast(size_t) id; } // #optimization: On 32-bit, we can do better than truncating
 
 	bool opEquals(ref Node other) const { return this.start == other.start && this.end == other.end; }
 
 	// @disable this(this);
 
-	this(TSNode node, Extra* extra) @trusted {
+	this(TSNode node, SourceFile sourceFile) @trusted {
 		this.tsnode = node; //
-		this.extra = extra;
+		this.sourceFile = sourceFile;
 		this.children_.length = ts_node_child_count(node);
 		this.findChildren();
 	}
@@ -153,7 +139,7 @@ struct Node
 
 	private void findChildren() @trusted return {
 		foreach (i, ref c; children_) {
-			c = Node(ts_node_child(tsnode, cast(uint) i), this.extra);
+			c = new Node(ts_node_child(tsnode, cast(uint) i), sourceFile);
 		}
 	}
 
@@ -195,7 +181,7 @@ struct Node
 	/// `false` if this is null
 	bool opCast() const { return !isNone; }
 
-	private static void appendOutput(O)(const ref Node node, ref O result) {
+	private static void appendOutput(O)(const Node node, ref O result) {
 		result ~= node.prefix;
 		if (node.hasBeenReplaced) {
 			result ~= node.replacement;

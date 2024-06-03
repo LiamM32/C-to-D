@@ -28,7 +28,7 @@ Node* getParenContent(return scope Node* node) {
 /// Things to be done:
 /// - implicit casts from int to short, char, etc. must be explicit in D
 /// - pointer arithmetic on static arrays can only be done after adding `.ptr`
-bool ctodExpression(ref CtodCtx ctx, ref Node node, Node*[string] declarations) {
+bool ctodExpression(ref CtodCtx ctx, ref Node node, Node[string] declarations) {
 	void depthFirst() {
 		foreach (ref c; node.children) {
 			translateNode(ctx, c, declarations);
@@ -371,7 +371,7 @@ private string toSizeof(scope string str) {
 }
 
 /// Translate C's `sizeof x` operator to D's `x.sizeof` property
-private bool ctodSizeof(ref CtodCtx ctx, ref Node node, Node*[string] declarations = null) {
+private bool ctodSizeof(ref CtodCtx ctx, ref Node node, Node[string] declarations = null) {
 	ctx.setExpType(node, CType.named("size_t"));
 	if (auto typeNode = node.childField(Field.type)) {
 		// sizeof(short) => (short).sizeof

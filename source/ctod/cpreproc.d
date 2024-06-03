@@ -13,7 +13,7 @@ package
 /// If `node` is a recognized preprocessor node, translate it to D
 ///
 /// Returns: `true` on success
-bool ctodTryPreprocessor(ref CtodCtx ctx, ref Node node, Node*[string]declarations) {
+bool ctodTryPreprocessor(ref CtodCtx ctx, ref Node node, Node[string]declarations) {
 	switch (node.typeEnum) {
 		case Sym.aux_preproc_else_token1: // "#else"
 			return node.replace("} else {");
@@ -260,7 +260,7 @@ bool ctodTryPreprocessor(ref CtodCtx ctx, ref Node node, Node*[string]declaratio
 }
 
 /// Find params in macroText, and surround them with ~""~
-string ctodMacroFunc(ref CtodCtx ctx, string macroText) {
+string ctodMacroFunc(ref CtodCtx ctx, string macroText, Node[string] declarations = null) {
 	while (macroText.length > 0 && macroText[0].isWhite) {
 		macroText = macroText[1 .. $];
 	}
@@ -272,7 +272,7 @@ string ctodMacroFunc(ref CtodCtx ctx, string macroText) {
 	if (!root || !root.children.length > 0) {
 		return macroText;
 	}
-	translateNode(ctx, root);
+	translateNode(ctx, root, declarations);
 	auto f = root.children[0].childField(Field.body_);
 	if (!f || !f.children.length > 0) {
 		return macroText;
@@ -347,7 +347,7 @@ private bool ctodHeaderGuard(ref CtodCtx ctx, ref Node ifdefNode) {
 
 /// Replace a defined(__WIN32__) to either `HasVersion!"Windows"` (in a `static if`)
 /// or just `Windows` (in a `version()`)
-bool replaceDefined(ref CtodCtx ctx, ref Node node, bool inVersionStatement, Node*[string] declarations = null) {
+bool replaceDefined(ref CtodCtx ctx, ref Node node, bool inVersionStatement, Node[string] declarations = null) {
 	if (auto c = node.firstChildType(Sym.identifier)) {
 		string replacement = c.source;
 		if (string s = mapLookup(versionMap, c.source, null)) {

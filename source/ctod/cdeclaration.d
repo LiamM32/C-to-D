@@ -7,7 +7,7 @@ import ctod.translate;
 import ctod.ctype;
 
 /// Returns: true if a declaration was matched and replaced
-Decl[] ctodTryDeclaration(ref CtodCtx ctx, ref Node node, Node*[string] declarations) {
+Decl[] ctodTryDeclaration(ref CtodCtx ctx, ref Node node, Node[string] declarations) {
 	InlineType[] inlinetypes;
 
 	Decl[] translateDecl(string suffix, bool cInit) {

@@ -34,6 +34,8 @@ private TSParser* getCParser() @trusted {
 	return parser;
 }
 
+CtodCtx ctx;
+
 /// Params:
 ///   source = C source code
 ///   moduleName = name for the `module` declaration on the D side
@@ -45,12 +47,12 @@ string translateFile(string source, string moduleName, ref TranslationSettings s
 	// scope(exit) ts_parser_delete(parser);
 	// ts_tree_delete(tree);
 
-	source = filterCppBlocks(source);
+	ctx = *(new CtodCtx(source, parser));
 
-	auto ctx = CtodCtx(source, parser);
+	source = filterCppBlocks(source);
 	SourceFile root = parseCtree(ctx.parser, source);
 	assert(root);
-	translateNode(ctx, root.rootNode, root.knownDeclarations);
+	translateNode(ctx, root, root.knownDeclarations);
 
 	string result = "";
 
@@ -106,7 +108,7 @@ package
 struct CtodCtx
 {
 	/// input C source code
-	string source;
+	deprecated string source;
 	/// C parser
 	TSParser* parser;
 	/// HasVersion(string) template is needed
@@ -119,6 +121,7 @@ struct CtodCtx
 	bool needsCbool = false;
 	/// needs `Cent` type
 	bool needsInt128 = false;
+
 
 	/// global variables and function declarations
 	Map!(string, Decl) symbolTable;
@@ -221,7 +224,7 @@ nothrow:
 }
 
 ///
-void translateNode(ref CtodCtx ctx, ref Node node, Node*[string] declarations = null) {
+void translateNode(ref CtodCtx ctx, Node node, Node[string] declarations = null) {
 	if (node.isTranslated) {
 		return;
 	}
@@ -271,7 +274,7 @@ bool hasDefaultStatement(ref Node node) {
 	return false;
 }
 
-package bool ctodTryStatement(ref CtodCtx ctx, ref Node node, Node*[string] declarations) {
+package bool ctodTryStatement(ref CtodCtx ctx, ref Node node, Node[string] declarations) {
 	switch (node.typeEnum) {
 		case Sym.if_statement:
 		case Sym.while_statement:
